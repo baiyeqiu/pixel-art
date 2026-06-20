@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#d4843a">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>像素画生成器</title>
+<style>
+:root{--bg:#f0ede6;--s:#fff;--b:#e0dcd4;--t:#2c2416;--m:#8a7e6e;--p:#d4843a;--r:16px;--danger:#c0392b}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--t);line-height:1.5;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+.app{max-width:960px;margin:0 auto;padding:8px}
+.hd{text-align:center;padding:8px 0 4px}.hd h1{font-size:20px;font-weight:700}
+.tn{display:flex;gap:3px;margin-bottom:8px;background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:3px}
+.tn button{flex:1;padding:8px 4px;border:none;background:none;border-radius:12px;font-size:12px;cursor:pointer;color:var(--m);transition:.15s}
+.tn button.on{background:var(--p);color:#fff}
+.page{display:none}.page.on{display:block}
+
+/* 画板布局 */
+.draw-layout{display:flex;gap:8px;height:calc(100vh - 130px);min-height:420px}
+.draw-panel-l{width:200px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;overflow-y:auto;overflow-x:hidden}
+.draw-panel-r{flex:1;display:flex;flex-direction:column;min-width:0}
+
+/* 工具组 */
+.tool-group{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:8px}
+.tool-group-label{font-size:10px;color:var(--m);text-transform:uppercase;margin-bottom:6px;padding:0 2px;letter-spacing:1px}
+.tool-row{display:flex;flex-wrap:wrap;gap:3px}
+.tb{width:36px;height:36px;border:1.5px solid transparent;border-radius:8px;background:var(--bg);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--m);transition:.12s;position:relative}
+.tb:hover{border-color:var(--b)}.tb.on{background:var(--p);color:#fff;border-color:var(--p)}
+.tb-sm{width:28px;height:28px;font-size:13px;border-radius:6px}
+.sym-btn{font-weight:700;font-size:11px}
+
+/* 笔刷大小 */
+.bs-row{display:flex;gap:2px;justify-content:center}
+.bs-row button{width:28px;height:28px;border:1.5px solid var(--b);border-radius:6px;background:var(--s);cursor:pointer;font-size:10px;font-weight:600}.bs-row button.on{background:var(--t);color:#fff}
+
+/* 画布尺寸 */
+.size-row{display:flex;align-items:center;gap:3px;justify-content:center}
+.inp{width:44px;padding:4px;border:1.5px solid var(--b);border-radius:6px;text-align:center;font-size:11px;background:var(--bg)}
+.btn-sm{padding:4px 8px;background:var(--p);color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer}
+.btn-sm2{padding:4px 8px;background:var(--bg);color:var(--t);border:1.5px solid var(--b);border-radius:6px;font-size:10px;cursor:pointer}
+
+/* 颜色 */
+.color-section{flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;overflow:hidden}
+.cur-color{display:flex;align-items:center;gap:6px;padding:8px;border:2px solid var(--b);border-radius:10px;background:var(--bg);cursor:pointer;flex-shrink:0}.cur-color:hover{border-color:var(--p)}
+.cur-color-preview{width:28px;height:28px;border-radius:6px;border:2px solid rgba(0,0,0,.1);flex-shrink:0}
+.cur-color-hex{font-size:10px;font-family:monospace;color:var(--t);font-weight:600}
+.clr-row{display:flex;flex-wrap:wrap;gap:3px}
+.clr-swatch{width:22px;height:22px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:.1s}
+.clr-swatch:hover{transform:scale(1.2);border-color:rgba(0,0,0,.2)}.clr-swatch.on{border-color:var(--t);box-shadow:0 0 0 2px var(--p)}
+.recent-swatch{width:22px;height:22px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:.1s}.recent-swatch:hover{transform:scale(1.2);border-color:rgba(0,0,0,.2)}.recent-swatch.on{border-color:var(--t);box-shadow:0 0 0 2px var(--p)}.recent-empty{font-size:10px;color:var(--m);padding:2px 8px;background:var(--bg);border-radius:4px}.recent-quick{display:flex;gap:4px;margin-left:auto;flex-shrink:0}.recent-quick-swatch{width:24px;height:24px;border-radius:5px;cursor:pointer;border:2px solid var(--b);transition:.12s;background:#ccc}.recent-quick-swatch:hover{transform:scale(1.15);border-color:var(--p)}.recent-quick-swatch.used{border-color:var(--p)}.storage-bar{display:flex;gap:4px;margin-top:4px}.storage-btn{padding:4px 6px;border:1px solid var(--b);border-radius:6px;background:var(--bg);cursor:pointer;font-size:9px;color:var(--m);font-weight:600;transition:.12s;flex:1}.storage-btn:hover{border-color:var(--p);color:var(--p)}.storage-btn.accent{background:var(--p);color:#fff;border-color:var(--p)}.save-indicator{font-size:8px;color:#27ae60;text-align:center;margin-top:2px;opacity:0;transition:opacity .3s}.save-indicator.show{opacity:1}
+
+/* 主画布区 */
+.canvas-area{flex:1;background:var(--s);border:1px solid var(--b);border-radius:var(--r);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.canvas-wrap{position:relative;overflow:hidden}
+.canvas-wrap canvas{image-rendering:pixelated;display:block}
+.sym-line{position:absolute;background:rgba(212,132,58,.3);pointer-events:none;z-index:1}
+
+/* 底部工具栏 */
+.bottom-bar{display:flex;gap:6px;margin-top:6px;justify-content:center;flex-wrap:wrap;align-items:center}
+.btn{padding:8px 16px;background:var(--p);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}.btn:disabled{opacity:.4}
+.btn2{padding:8px 16px;background:var(--bg);color:var(--t);border:1.5px solid var(--b);border-radius:8px;font-size:12px;cursor:pointer}
+.btn3{padding:6px 10px;background:var(--s);color:var(--t);border:1.5px solid var(--b);border-radius:6px;font-size:10px;cursor:pointer}
+
+/* 导出弹窗 */
+.export-popup{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);z-index:1100;flex-direction:column;align-items:center;justify-content:center}
+.export-popup.show{display:flex}
+.export-close{position:absolute;top:10px;right:14px;width:36px;height:36px;background:rgba(255,255,255,.2);border:none;border-radius:50%;color:#fff;font-size:18px;cursor:pointer;z-index:1}
+.export-img-wrap{max-width:90vw;max-height:65vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px}
+.export-img-wrap img{image-rendering:pixelated;max-width:85vw;max-height:55vh;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.4);background:#fff}
+.export-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.export-actions button{padding:10px 18px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.ea-save{background:#27ae60;color:#fff}.ea-copy{background:#2980b9;color:#fff}.ea-share{background:var(--p);color:#fff}
+.export-hint{color:#fff;font-size:11px;margin-top:10px;opacity:.7;text-align:center}
+
+/* 颜色选择器弹窗 */
+.color-picker-popup{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center}
+.color-picker-popup.show{display:flex}
+.cp-dialog{background:#fff;border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:300px;max-width:90vw}
+.cp-canvas-wrap{position:relative;width:100%;height:180px;border-radius:10px;overflow:hidden;margin-bottom:10px;cursor:crosshair}
+.cp-canvas-wrap canvas{width:100%;height:100%;display:block}
+.cp-cursor{position:absolute;width:18px;height:18px;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 0 0 1px rgba(0,0,0,.15);transform:translate(-50%,-50%);pointer-events:none}
+.cp-hue-bar{position:relative;height:24px;border-radius:12px;cursor:pointer;margin-bottom:10px}
+.cp-hue-bar canvas{width:100%;height:100%;display:block;border-radius:12px}
+.cp-hue-cursor{position:absolute;width:14px;height:28px;border:2px solid #fff;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.25);transform:translate(-50%,-50%);top:50%;pointer-events:none}
+.cp-rgb-row{display:flex;gap:6px;margin-bottom:10px}
+.cp-rgb-input{flex:1;padding:8px 4px;border:1.5px solid var(--b);border-radius:8px;text-align:center;font-size:13px;font-family:monospace;background:var(--bg)}
+.cp-rgb-label{font-size:9px;color:var(--m);text-align:center;margin-top:2px}
+.cp-btns{display:flex;gap:8px}
+.cp-btns button{flex:1;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;color:#fff}
+.cp-btn-ok{background:var(--p)}.cp-btn-cancel{background:var(--bg);color:var(--t);border:1.5px solid var(--b)}
+
+/* 其他页样式 */
+.cd{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:16px;margin-bottom:8px}
+.cd h2{font-size:13px;margin-bottom:8px}
+.up{border:2px dashed var(--b);border-radius:var(--r);padding:28px;text-align:center;cursor:pointer}.up:hover{border-color:var(--p)}.up .ic{font-size:32px;display:block;margin-bottom:4px}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.fg label{font-size:10px;color:var(--m);display:flex;flex-direction:column;gap:2px}.fg input,.fg select{padding:7px 8px;border:1.5px solid var(--b);border-radius:8px;font-size:12px;background:var(--bg)}
+.res img{width:100%;max-width:360px;border-radius:8px;image-rendering:pixelated;border:1px solid var(--b)}.stats{display:flex;gap:6px;margin:6px 0}.stats .si{background:var(--bg);padding:6px 10px;border-radius:8px;text-align:center;flex:1}.stats .sv{font-size:16px;font-weight:700;color:var(--p)}.stats .sl{font-size:8px;color:var(--m)}
+.csw{display:flex;gap:2px;flex-wrap:wrap;margin:4px 0}.csw span{width:16px;height:16px;border-radius:3px;border:1px solid rgba(0,0,0,.08)}
+.airow{display:flex;gap:6px}.airow input{flex:1;padding:9px 12px;border:2px solid var(--b);border-radius:10px;font-size:12px;background:var(--bg)}.air{margin-top:10px;text-align:center;display:none}.air img{max-width:100%;max-height:280px;border-radius:10px}
+
+.tip{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--t);color:#fff;padding:8px 20px;border-radius:20px;font-size:12px;z-index:999;pointer-events:none;animation:tipf 2s forwards}
+@keyframes tipf{0%,70%{opacity:1}100%{opacity:0}}
+
+@media(max-width:640px){
+  .app{padding:4px}.hd h1{font-size:16px}.tn button{padding:6px 3px;font-size:11px}
+  .draw-layout{flex-direction:column;gap:6px;height:auto;min-height:0}
+  .draw-panel-l{width:100%;flex-direction:row;flex-wrap:wrap;gap:4px;overflow-y:visible;max-height:160px}
+  .tool-group{padding:4px 6px}.tool-group-label{font-size:9px;margin-bottom:2px}
+  .tb{width:30px;height:30px;font-size:13px;border-radius:6px}
+  .draw-panel-r{min-height:280px}
+  .fg{grid-template-columns:1fr}
+  .bottom-bar{gap:3px}
+  .btn,.btn2{padding:6px 10px;font-size:11px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="hd"><h1>🎨 像素画生成器</h1></header>
+<nav class="tn">
+  <button class="on" onclick="switchTab('convert')">📷 图片转换</button>
+  <button onclick="switchTab('draw')">✏️ 自由画板</button>
+  <button onclick="switchTab('ai')">🤖 AI 生图</button>
+</nav>
+
+<!-- ======== 图片转换 ======== -->
+<div class="page on" id="page-convert">
+  <div class="cd"><h2>上传图片</h2>
+    <div class="up" id="drop-zone"><div id="upload-hint"><span class="ic">📁</span><p style="font-size:10px;color:var(--m)">点击或拖放 PNG/JPG/WEBP</p></div>
+    <input type="file" id="file-input" accept="image/*" hidden><canvas id="pc" style="max-width:100%;max-height:200px;border-radius:8px;display:none"></canvas></div>
+  </div>
+  <div class="cd"><h2>参数</h2>
+    <div class="fg">
+      <label>宽<input type="number" id="pixel-w" value="64" min="4" max="256"></label>
+      <label>高<input type="number" id="pixel-h" value="64" min="4" max="256"></label>
+      <label>模式<select id="color-mode"><option value="palette">提取调色板</option><option value="mono">黑白</option><option value="grayscale">灰度</option></select></label>
+      <label>颜色数<input type="number" id="color-count" value="16" min="2" max="64"></label>
+    </div>
+    <button class="btn" id="btn-generate" disabled>🎯 生成像素画</button>
+  </div>
+  <div class="cd" id="step-result" style="display:none"><h2>预览</h2>
+    <div class="res"><img id="pixel-preview" alt="像素画"><div class="stats" id="stats"></div><div class="csw" id="used-colors"></div>
+    <button class="btn" id="btn-send-draw" style="margin-top:6px">✏️ 发到画板</button>
+    <button class="btn2" id="btn-export-convert" style="width:100%;margin-top:4px">💾 导出PNG</button></div>
+  </div>
+</div>
+
+<!-- ======== 自由画板 ======== -->
+<div class="page" id="page-draw">
+  <div class="draw-layout">
+    <!-- 左侧面板 -->
+    <div class="draw-panel-l">
+      <!-- 工具 -->
+      <div class="tool-group">
+        <div class="tool-group-label">🛠 工具</div>
+        <div class="tool-row">
+          <button class="tb on" data-tool="pen" title="画笔(1)">🖊</button>
+          <button class="tb" data-tool="eraser" title="橡皮(2)">🧹</button>
+          <button class="tb" data-tool="fill" title="填充(3)">🪣</button>
+          <button class="tb" data-tool="eyedropper" title="取色(4)">💉</button>
+          <button class="tb" data-tool="line" title="直线(5)">╱</button>
+          <button class="tb" data-tool="rect" title="矩形(6)">▭</button>
+          <button class="tb" data-tool="circle" title="圆形(7)">◯</button>
+        </div>
+      </div>
+      <!-- 对称 -->
+      <div class="tool-group">
+        <div class="tool-group-label">🪞 对称</div>
+        <div class="tool-row">
+          <button class="tb tb-sm sym-btn on" data-sym="none" title="无对称">✕</button>
+          <button class="tb tb-sm sym-btn" data-sym="h" title="水平">━</button>
+          <button class="tb tb-sm sym-btn" data-sym="v" title="垂直">┃</button>
+          <button class="tb tb-sm sym-btn" data-sym="both" title="四象限">╋</button>
+        </div>
+      </div>
+      <!-- 笔刷大小 -->
+      <div class="tool-group">
+        <div class="tool-group-label">◉ 笔刷</div>
+        <div class="bs-row">
+          <button class="on" data-size="1">1</button><button data-size="2">2</button>
+          <button data-size="3">3</button><button data-size="4">4</button>
+          <button data-size="6">6</button><button data-size="8">8</button>
+        </div>
+      </div>
+      <!-- 画布尺寸 -->
+      <div class="tool-group">
+        <div class="tool-group-label">📐 画布</div>
+        <div class="size-row">
+          <input type="number" id="draw-w" value="32" min="4" max="256" class="inp">
+          <span style="font-size:10px;color:var(--m)">×</span>
+          <input type="number" id="draw-h" value="32" min="4" max="256" class="inp">
+          <button class="btn-sm" id="btn-resize">↺</button>
+        </div>
+      </div>
+      <!-- 颜色 -->
+      <div class="tool-group color-section">
+        <div class="tool-group-label">🎨 颜色</div>
+        <div class="cur-color" id="cur-color-btn" title="点击打开颜色选择器">
+          <span class="cur-color-preview" id="cur-preview"></span>
+          <span class="cur-color-hex" id="cur-hex"></span>
+          <div class="recent-quick">
+            <div class="recent-quick-swatch" id="rq1" title="最近使用1" onclick="event.stopPropagation();useQuickRecent(0)"></div>
+            <div class="recent-quick-swatch" id="rq2" title="最近使用2" onclick="event.stopPropagation();useQuickRecent(1)"></div>
+          </div>
+        </div>
+        <div class="clr-row" id="preclr"></div>
+        <div class="storage-bar">
+          <button class="storage-btn accent" id="btn-save-project">💾 保存</button>
+          <button class="storage-btn" id="btn-load-project">📂 加载</button>
+        </div>
+        <div class="save-indicator" id="saveIndicator">✅ 已保存</div>
+      </div>
+    </div>
+
+    <!-- 右侧主区域 -->
+    <div class="draw-panel-r">
+      <div class="canvas-area" id="canvas-area">
+        <div class="canvas-wrap" id="canvas-wrap">
+          <canvas id="dc"></canvas>
+          <div class="sym-line" id="sym-h-line" style="display:none"></div>
+          <div class="sym-line" id="sym-v-line" style="display:none"></div>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn" id="btn-export-draw">💾 导出PNG</button>
+        <button class="btn2" id="btn-undo">↩ 撤销</button>
+        <button class="btn2" id="btn-redo">↪ 重做</button>
+        <button class="btn2" id="btn-grid">▦</button>
+        <button class="btn2" id="btn-clear">🗑️</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======== AI 生图 ======== -->
+<div class="page" id="page-ai">
+  <div class="cd"><h2>🤖 AI 文字生图</h2>
+    <p style="font-size:10px;color:var(--m);margin-bottom:8px">Pollinations.AI 免费 · 10-30秒</p>
+    <div class="airow"><input type="text" id="ai-prompt" placeholder="描述你想画的图..." maxlength="300"><button class="btn" id="btn-ai-gen" style="width:auto">生成</button></div>
+    <div style="margin-top:4px"><label style="font-size:10px;color:var(--m)">尺寸<select id="ai-size"><option value="256">256</option><option value="512" selected>512</option><option value="768">768</option><option value="1024">1024</option></select></label></div>
+    <div class="air" id="ai-result"><img id="ai-image" alt="AI生成"><div style="display:flex;gap:6px;justify-content:center;margin-top:8px"><button class="btn" id="btn-ai-to-convert">📷 像素化</button><button class="btn2" id="btn-ai-to-draw">✏️ 发画板</button><button class="btn2" id="btn-ai-retry">🔄 重试</button></div></div>
+  </div>
+</div>
+</div>
+
+<!-- 颜色选择器弹窗 -->
+<div class="color-picker-popup" id="colorPickerPopup">
+  <div class="cp-dialog">
+    <div class="cp-canvas-wrap" id="cpCanvasWrap"><canvas id="cpSvCanvas"></canvas><div class="cp-cursor" id="cpCursor"></div></div>
+    <div class="cp-hue-bar" id="cpHueWrap"><canvas id="cpHueCanvas"></canvas><div class="cp-hue-cursor" id="cpHueCursor"></div></div>
+    <div class="cp-rgb-row">
+      <div><input type="number" class="cp-rgb-input" id="cpR" min="0" max="255"><div class="cp-rgb-label">R</div></div>
+      <div><input type="number" class="cp-rgb-input" id="cpG" min="0" max="255"><div class="cp-rgb-label">G</div></div>
+      <div><input type="number" class="cp-rgb-input" id="cpB" min="0" max="255"><div class="cp-rgb-label">B</div></div>
+    </div>
+    <div class="cp-btns"><button class="cp-btn-cancel" id="cpCancel">取消</button><button class="cp-btn-ok" id="cpOk">确定</button></div>
+  </div>
+</div>
+
+<!-- 导出预览弹窗 -->
+<div class="export-popup" id="exportPopup">
+  <button class="export-close" onclick="document.getElementById('exportPopup').classList.remove('show')">✕</button>
+  <div class="export-img-wrap">
+    <img id="exportImg" alt="导出预览">
+    <div class="export-actions">
+      <button class="ea-save" id="ea-save-png">💾 保存 PNG (1x)</button>
+      <button class="ea-save" id="ea-save-png2x" style="background:#219a52">💾 保存 PNG (4x)</button>
+      <button class="ea-share" id="ea-share">📤 分享</button>
+    </div>
+  </div>
+  <div class="export-hint">📱 自动保存到相册 Pictures/PixelArt · 也可点击下方按钮</div>
+</div>
+
+<script>
+/* ============================
+   像素画生成器 v2.0 — 重构版
+   借鉴开源项目 base.apk 架构
+   ============================ */
+
+// ========== 工具函数 ==========
+function $(id){return document.getElementById(id)}
+function h2r(h){var m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:null}
+function r2h(r,g,b){return"#"+[r,g,b].map(function(v){return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0")}).join("")}
+function tip(m){var t=document.createElement("div");t.className="tip";t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},2000)}
+
+// ========== 标签导航 ==========
+function switchTab(n){
+  document.querySelectorAll(".tn button").forEach(function(b){b.classList.remove("on")});
+  document.querySelectorAll(".page").forEach(function(p){p.classList.remove("on")});
+  var btn=document.querySelector('.tn button[onclick*="'+n+'"]');if(btn)btn.classList.add("on");
+  var pg=document.getElementById("page-"+n);if(pg)pg.classList.add("on");
+  if(n==="draw")initDraw();
+}
+
+// ========== 图片像素化引擎 ==========
+function pixelate(img,w,h,cc,cm){
+  var c=document.createElement("canvas");c.width=w;c.height=h;
+  var ctx=c.getContext("2d");ctx.imageSmoothingEnabled=false;ctx.drawImage(img,0,0,w,h);
+  var id=ctx.getImageData(0,0,w,h),px=[];
+  for(var y=0;y<h;y++)for(var x=0;x<w;x++){
+    var i=(y*w+x)*4;px.push({x:x,y:y,r:id.data[i],g:id.data[i+1],b:id.data[i+2],a:Math.min(255,id.data[i+3]+30)})
+  }
+  var pal;
+  if(cm==="mono"){pal=["#000000","#ffffff"]}
+  else if(cm==="grayscale"){pal=[];for(var k=0;k<Math.min(cc,16);k++){var v=Math.round(k*255/(Math.min(cc,16)-1));pal.push(r2h(v,v,v))}}
+  else{var op=px.filter(function(p){return p.a>128});var n=Math.min(cc,op.length);if(n<2){pal=["#000000","#ffffff"]}else{
+    var cl=[];for(var j=0;j<n;j++){var pp=op[Math.floor(j*op.length/n)];cl.push({r:pp.r,g:pp.g,b:pp.b})}
+    for(var iter=0;iter<8;iter++){var sums=cl.map(function(){return{r:0,g:0,b:0,c:0}});
+      op.forEach(function(p){var best=0,bestD=Infinity;for(var j=0;j<cl.length;j++){
+        var dr=p.r-cl[j].r,dg=p.g-cl[j].g,db=p.b-cl[j].b,d=dr*dr+dg*dg+db*db;if(d<bestD){bestD=d;best=j}}sums[best].r+=p.r;sums[best].g+=p.g;sums[best].b+=p.b;sums[best].c++});
+      for(var j=0;j<cl.length;j++)if(sums[j].c>0){cl[j].r=Math.round(sums[j].r/sums[j].c);cl[j].g=Math.round(sums[j].g/sums[j].c);cl[j].b=Math.round(sums[j].b/sums[j].c)}}
+    pal=cl.map(function(cll){return r2h(cll.r,cll.g,cll.b)})
+  }}
+  if(pal.length<2)pal=["#000000","#ffffff"];
+  var pRgb=pal.map(h2r),grid=[],cs={};
+  for(var y=0;y<h;y++){var row=[];for(var x=0;x<w;x++){var p=px[y*w+x];if(p.a<128){row.push("#ffffff");continue}
+    var best=0,bestD=Infinity;for(var j=0;j<pRgb.length;j++){var pr=pRgb[j],dr=p.r-pr.r,dg=p.g-pr.g,db=p.b-pr.b,d=dr*dr+dg*dg+db*db;if(d<bestD){bestD=d;best=j}}var hex=pal[best];row.push(hex);cs[hex]=true}grid.push(row)}
+  var sc=Math.max(2,Math.floor(512/Math.max(w,h))),pv=document.createElement("canvas");pv.width=w*sc;pv.height=h*sc;
+  var pctx=pv.getContext("2d");pctx.imageSmoothingEnabled=false;
+  for(var y=0;y<h;y++)for(var x=0;x<w;x++){pctx.fillStyle=grid[y][x];pctx.fillRect(x*sc,y*sc,sc,sc)}
+  return{grid:grid,w:w,h:h,preview:pv.toDataURL(),colors:Object.keys(cs),cc:Object.keys(cs).length}
+}
+
+// ========== 图片转换页 ==========
+(function(){
+  var iU=null,lG=null,lW=0,lH=0;
+  function lf(f){if(!f||!f.type.match(/image\//))return;var r=new FileReader();r.onload=function(){iU=r.result;var m=new Image();m.onload=function(){
+    var mW=360,mH=260,w=m.width,h=m.height;if(w>mW){h=Math.round(h*mW/w);w=mW}if(h>mH){w=Math.round(w*mH/h);h=mH}
+    document.getElementById("pc").width=w;document.getElementById("pc").height=h;
+    document.getElementById("pc").getContext("2d").drawImage(m,0,0,w,h);
+    document.getElementById("pc").style.display="block";document.getElementById("upload-hint").style.display="none";
+    var rt=m.width/m.height;document.getElementById("pixel-w").value=64;document.getElementById("pixel-h").value=Math.max(1,Math.round(64/rt));
+    document.getElementById("btn-generate").disabled=false};m.src=r.result};r.readAsDataURL(f)}
+  document.getElementById("drop-zone").addEventListener("click",function(){document.getElementById("file-input").click()});
+  document.getElementById("drop-zone").addEventListener("dragover",function(e){e.preventDefault()});
+  document.getElementById("drop-zone").addEventListener("drop",function(e){e.preventDefault();lf(e.dataTransfer.files[0])});
+  document.getElementById("file-input").addEventListener("change",function(){lf(this.files[0])});
+  document.getElementById("btn-generate").addEventListener("click",function(){if(!iU)return;var btn=this;btn.disabled=true;btn.textContent="处理中...";var m=new Image();m.onload=function(){
+    var r=pixelate(m,Number(document.getElementById("pixel-w").value)||64,Number(document.getElementById("pixel-h").value)||64,
+      Number(document.getElementById("color-count").value)||16,document.getElementById("color-mode").value);
+    lG=r.grid;lW=r.w;lH=r.h;document.getElementById("pixel-preview").src=r.preview;
+    document.getElementById("step-result").style.display="block";
+    document.getElementById("stats").innerHTML='<div class="si"><div class="sv">'+r.w+'×'+r.h+'</div><div class="sl">像素</div></div><div class="si"><div class="sv">'+r.w*r.h+'</div><div class="sl">总数</div></div><div class="si"><div class="sv">'+r.cc+'</div><div class="sl">颜色</div></div>';
+    document.getElementById("used-colors").innerHTML=r.colors.map(function(c){return'<span style="background:'+c+'" title="'+c+'"></span>'}).join("");
+    document.getElementById("step-result").scrollIntoView({behavior:"smooth"});btn.textContent="重新生成";btn.disabled=false};m.src=iU});
+  document.getElementById("btn-send-draw").addEventListener("click",function(){if(!lG)return;switchTab("draw");setTimeout(function(){if(window.loadGrid)window.loadGrid(lW,lH,lG)},150)});
+  document.getElementById("btn-export-convert").addEventListener("click",function(){if(!lG)return;var ec=document.createElement("canvas");ec.width=lW;ec.height=lH;var ectx=ec.getContext("2d");ectx.fillStyle="#ffffff";ectx.fillRect(0,0,lW,lH);for(var y=0;y<lH;y++)for(var x=0;x<lW;x++){var cl=lG[y][x];if(cl&&cl!=="#ffffff"){ectx.fillStyle=cl;ectx.fillRect(x,y,1,1)}}showExportPopup(ec)});
+})();
+
+// ========== 通用保存引擎（仿 base.apk MediaStore 机制） ==========
+// 原生 GallerySaver 使用 Android MediaStore API，直接保存到系统相册 Pictures/PixelArt/
+// 原理与 base.apk 的 image_gallery_saver_plus 插件完全一致
+async function saveCanvasToDevice(canvas, filename, scale){
+  var out=canvas;
+  if(scale&&scale>1){
+    out=document.createElement("canvas");out.width=canvas.width*scale;out.height=canvas.height*scale;
+    var octx=out.getContext("2d");octx.imageSmoothingEnabled=false;octx.drawImage(canvas,0,0,out.width,out.height);
+  }
+
+  // 方案1：原生 GallerySaver（MediaStore API → Pictures/PixelArt/ —— 与 base.apk 相同机制）
+  if(typeof window.GallerySaver !== 'undefined' && window.GallerySaver.save){
+    try{
+      var dataUrl=out.toDataURL("image/png");
+      // 提取纯 base64（去除 data:image/png;base64, 前缀）
+      var b64=dataUrl.substring(dataUrl.indexOf("base64,")+7);
+      window.GallerySaver.save(b64, filename);
+      tip("✅ 已保存到相册: "+filename);
+      return;
+    }catch(e){console.warn("GallerySaver failed:",e)}
+  }
+
+  // 方案2：Web Share API（现代浏览器/WebView）
+  try{
+    var blob=await new Promise(function(resolve){out.toBlob(function(b){resolve(b)},'image/png')});
+    if(blob && navigator.share && navigator.canShare && navigator.canShare({files:[new File([blob],filename,{type:'image/png'})]})){
+      await navigator.share({files:[new File([blob],filename,{type:'image/png'})],title:'像素画'});
+      tip("已分享/保存！");
+      return;
+    }
+  }catch(e){}
+
+  // 方案3：下载链接（桌面端回退）
+  try{
+    var blob2=await new Promise(function(resolve){out.toBlob(function(b){resolve(b)},'image/png')});
+    var url=URL.createObjectURL(blob2||out.toDataURL("image/png"));
+    var a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+    setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},100);
+    tip("已下载: "+filename);
+  }catch(e){tip("保存失败，请长按图片保存")}
+}
+
+function showExportPopup(canvas){
+  var url=canvas.toDataURL("image/png");
+  document.getElementById("exportImg").src=url;
+  document.getElementById("exportPopup").classList.add("show");
+  var w=canvas.width,h=canvas.height;
+  document.getElementById("ea-save-png").onclick=function(){
+    saveCanvasToDevice(canvas,'pixel-'+w+'x'+h+'.png',1);
+    document.getElementById("exportPopup").classList.remove("show");
+  };
+  document.getElementById("ea-save-png2x").onclick=function(){
+    saveCanvasToDevice(canvas,'pixel-'+w+'x'+h+'@4x.png',4);
+    document.getElementById("exportPopup").classList.remove("show");
+  };
+  document.getElementById("ea-share").onclick=function(){
+    canvas.toBlob(function(blob){
+      if(navigator.share&&blob){
+        navigator.share({files:[new File([blob],'pixel-'+w+'x'+h+'.png',{type:'image/png'})],title:'像素画'}).catch(function(){})
+      }else{tip("请使用保存按钮")}
+    },'image/png')
+  };
+}
+
+// ========== 自由画板引擎 ==========
+var dOK=false;
+function initDraw(){
+  if(dOK)return;dOK=true;
+  var cv=document.getElementById("dc");if(!cv)return;
+
+  // ===== 状态 =====
+  var PS=14;          // 基础像素块大小
+  var gw=32,gh=32;    // 画布宽高（像素）
+  var px=null;        // 像素数据 Uint8Array[gw*gh*4]
+  var cc="#000000";   // 当前颜色
+  var ct="pen";       // 当前工具
+  var bs=1;           // 笔刷大小
+  var sym="none";     // 对称模式
+  var sg=true;        // 显示网格
+  var undoStack=[];   // [{px: Uint8Array}]
+  var redoStack=[];
+  var dw=false;       // 是否在绘制
+  var lx=-1,ly=-1;    // 上一帧坐标
+  var shapeStart=null;// 形状起始
+
+  var recentColors=[]; // 仅保留最近2色
+
+  function newPx(){var a=new Uint8Array(gw*gh*4);a.fill(255);return a}
+
+  // ===== 渲染引擎 =====
+  function updateCanvasSize(){
+    cv.width=gw*PS;cv.height=gh*PS;
+    cv.style.width=(gw*PS)+"px";cv.style.height=(gh*PS)+"px";
+  }
+  function renderAll(){
+    if(!px)px=newPx();
+    var ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.imageSmoothingEnabled=false;
+    for(var y=0;y<gh;y++)for(var x=0;x<gw;x++){
+      var i=(y*gw+x)*4;if(px[i+3]<1)continue;
+      ctx.fillStyle="rgba("+px[i]+","+px[i+1]+","+px[i+2]+","+(px[i+3]/255)+")";
+      ctx.fillRect(x*PS,y*PS,PS,PS);
+    }
+    if(sg){
+      ctx.strokeStyle="rgba(0,0,0,0.08)";ctx.lineWidth=0.5;
+      for(var y=0;y<=gh;y++){ctx.beginPath();ctx.moveTo(0,y*PS);ctx.lineTo(gw*PS,y*PS);ctx.stroke()}
+      for(var x=0;x<=gw;x++){ctx.beginPath();ctx.moveTo(x*PS,0);ctx.lineTo(x*PS,gh*PS);ctx.stroke()}
+    }
+    document.getElementById("draw-w").value=gw;document.getElementById("draw-h").value=gh;
+  }
+  function saveUndo(){
+    undoStack.push(new Uint8Array(px));if(undoStack.length>100)undoStack.shift();redoStack=[];
+  }
+  function undo(){
+    var op=undoStack.pop();if(!op)return;
+    redoStack.push(new Uint8Array(px));px=op;renderAll();
+  }
+  function redo(){
+    var op=redoStack.pop();if(!op)return;
+    undoStack.push(new Uint8Array(px));px=op;renderAll();
+  }
+  function reset(w,h){
+    gw=w;gh=h;px=newPx();undoStack=[];redoStack=[];updateCanvasSize();renderAll();
+  }
+
+  // ===== 颜色系统 =====
+  function updCur(){document.getElementById("cur-preview").style.background=cc;document.getElementById("cur-hex").textContent=cc.toUpperCase();updateQuickRecents()}
+  function addRecentColor(c){
+    if(!/^#[0-9a-fA-F]{6}$/.test(c)||c==="#ffffff")return;
+    recentColors=recentColors.filter(function(x){return x!==c});recentColors.unshift(c);
+    if(recentColors.length>2)recentColors.pop();renderClr();
+  }
+  function renderClr(){
+    updCur();
+    var el=document.getElementById("preclr");el.innerHTML="";
+    if(recentColors.length>0){
+      recentColors.forEach(function(c){var s=document.createElement("span");s.className="recent-swatch";if(c===cc)s.classList.add("on");s.style.background=c;s.title=c;s.onclick=function(){cc=c;addRecentColor(c);renderClr()};el.appendChild(s)});
+    }else{var e=document.createElement("span");e.className="recent-empty";e.textContent="选颜色";el.appendChild(e);}
+    updateQuickRecents();
+  }
+  function updateQuickRecents(){
+    var rq1=document.getElementById("rq1"),rq2=document.getElementById("rq2");
+    if(!rq1||!rq2)return;
+    if(recentColors.length>=1){rq1.style.background=recentColors[0];rq1.classList.add("used");rq1.title=recentColors[0]}
+    else{rq1.style.background="#ccc";rq1.classList.remove("used");rq1.title="最近使用1"}
+    if(recentColors.length>=2){rq2.style.background=recentColors[1];rq2.classList.add("used");rq2.title=recentColors[1]}
+    else{rq2.style.background="#ccc";rq2.classList.remove("used");rq2.title="最近使用2"}
+  }
+  window.useQuickRecent=function(idx){if(recentColors[idx]){cc=recentColors[idx];updCur();renderClr();addRecentColor(cc);tip("已选: "+cc)}}
+  renderClr();
+
+  // ===== 颜色选择器 =====
+  var cpHue=0,cpSat=100,cpVal=100,cpDrag=false,cpHueDrag=false;
+  function openColorPicker(){
+    var rgb=h2r(cc)||{r:0,g:0,b:0};var hsv=rgb2hsv(rgb.r,rgb.g,rgb.b);cpHue=hsv.h;cpSat=hsv.s;cpVal=hsv.v;
+    document.getElementById("colorPickerPopup").classList.add("show");setTimeout(function(){drawCpSv();drawCpHue();updateCpCursor();updateCpRgb()},80);
+  }
+  function closeColorPicker(){document.getElementById("colorPickerPopup").classList.remove("show");cpDrag=false;cpHueDrag=false}
+  function applyColorPicker(){var rgb=updateCpFromRgb();cc=r2h(rgb.r,rgb.g,rgb.b);addRecentColor(cc);updCur();renderClr();closeColorPicker()}
+  document.getElementById("cur-color-btn").addEventListener("click",openColorPicker);
+  document.getElementById("cpCancel").addEventListener("click",closeColorPicker);
+  document.getElementById("cpOk").addEventListener("click",applyColorPicker);
+  function drawCpSv(){
+    var c=document.getElementById("cpSvCanvas"),w=260,h=180;c.width=w;c.height=h;
+    var ctx=c.getContext("2d"),hueColor=hsv2rgb(cpHue,100,100);
+    for(var y=0;y<h;y++){var gr=ctx.createLinearGradient(0,y,w,y);gr.addColorStop(0,"rgba(255,255,255,"+(1-y/h)+")");gr.addColorStop(1,"rgba("+hueColor.r+","+hueColor.g+","+hueColor.b+",1)");ctx.fillStyle=gr;ctx.fillRect(0,y,w,1)}
+  }
+  function drawCpHue(){var c=document.getElementById("cpHueCanvas"),w=268,h=24;c.width=w;c.height=h;var ctx=c.getContext("2d"),gr=ctx.createLinearGradient(0,0,w,0);for(var i=0;i<=6;i++){var col=hsv2rgb(i*60,100,100);gr.addColorStop(i/6,"rgb("+col.r+","+col.g+","+col.b+")")}ctx.fillStyle=gr;ctx.fillRect(0,0,w,h)}
+  function updateCpCursor(){
+    var wrap=document.getElementById("cpCanvasWrap"),cr=document.getElementById("cpCursor"),ww=wrap.offsetWidth||260,hh=wrap.offsetHeight||180;
+    cr.style.left=(cpSat/100*ww)+"px";cr.style.top=((100-cpVal)/100*hh)+"px";
+    var hw=document.getElementById("cpHueWrap").offsetWidth||268;document.getElementById("cpHueCursor").style.left=(cpHue/360*hw)+"px"}
+  function updateCpRgb(){var rgb=hsv2rgb(cpHue,cpSat,cpVal);document.getElementById("cpR").value=rgb.r;document.getElementById("cpG").value=rgb.g;document.getElementById("cpB").value=rgb.b}
+  function updateCpFromRgb(){var r=+document.getElementById("cpR").value||0,g=+document.getElementById("cpG").value||0,b=+document.getElementById("cpB").value||0;var hsv=rgb2hsv(r,g,b);cpHue=hsv.h;cpSat=hsv.s;cpVal=hsv.v;drawCpSv();updateCpCursor();return{r:r,g:g,b:b}}
+  (function(){var sv=document.getElementById("cpCanvasWrap");function svPos(e){var r=sv.getBoundingClientRect(),rw=r.width||260,rh=r.height||180;var x=(e.touches?e.touches[0].clientX:e.clientX)-r.left,y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;if(rw<=0||rh<=0)return;cpSat=Math.max(0,Math.min(100,x/rw*100));cpVal=Math.max(0,Math.min(100,(1-y/rh)*100));updateCpCursor();updateCpRgb()}sv.addEventListener("mousedown",function(e){cpDrag=true;svPos(e)});sv.addEventListener("touchstart",function(e){e.preventDefault();cpDrag=true;svPos(e)},{passive:false});window.addEventListener("mousemove",function(e){if(cpDrag)svPos(e)});window.addEventListener("touchmove",function(e){if(cpDrag){e.preventDefault();svPos(e)}},{passive:false});window.addEventListener("mouseup",function(){cpDrag=false});window.addEventListener("touchend",function(){cpDrag=false})})();
+  (function(){var hue=document.getElementById("cpHueWrap");function huePos(e){var r=hue.getBoundingClientRect(),rw=r.width||268;var x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;if(rw<=0)return;cpHue=Math.max(0,Math.min(360,x/rw*360));drawCpSv();updateCpCursor();updateCpRgb()}hue.addEventListener("mousedown",function(e){cpHueDrag=true;huePos(e)});hue.addEventListener("touchstart",function(e){e.preventDefault();cpHueDrag=true;huePos(e)},{passive:false});window.addEventListener("mousemove",function(e){if(cpHueDrag)huePos(e)});window.addEventListener("touchmove",function(e){if(cpHueDrag){e.preventDefault();huePos(e)}},{passive:false});window.addEventListener("mouseup",function(){cpHueDrag=false});window.addEventListener("touchend",function(){cpHueDrag=false})})();
+  ["cpR","cpG","cpB"].forEach(function(id){document.getElementById(id).addEventListener("input",function(){updateCpFromRgb()})});
+
+  // ===== 绘图操作 =====
+  function drawPoint(x,y){
+    var rgb=h2r(cc)||{r:0,g:0,b:0};
+    var eraser=ct==="eraser";
+    for(var dy=0;dy<bs;dy++)for(var dx=0;dx<bs;dx++){
+      var nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=gw||ny>=gh)continue;
+      var i=(ny*gw+nx)*4;px[i]=eraser?255:rgb.r;px[i+1]=eraser?255:rgb.g;px[i+2]=eraser?255:rgb.b;px[i+3]=eraser?0:255;
+    }
+    if(sym==="h"||sym==="both"){var sy=gh-1-(y+bs-1);for(var dy=0;dy<bs;dy++)for(var dx=0;dx<bs;dx++){
+      var nx=x+dx,ny=sy+dy;if(nx<0||ny<0||nx>=gw||ny>=gh)continue;
+      var i=(ny*gw+nx)*4;px[i]=eraser?255:rgb.r;px[i+1]=eraser?255:rgb.g;px[i+2]=eraser?255:rgb.b;px[i+3]=eraser?0:255;
+    }}
+    if(sym==="v"||sym==="both"){var sx=gw-1-(x+bs-1);for(var dy=0;dy<bs;dy++)for(var dx=0;dx<bs;dx++){
+      var nx=sx+dx,ny=y+dy;if(nx<0||ny<0||nx>=gw||ny>=gh)continue;
+      var i=(ny*gw+nx)*4;px[i]=eraser?255:rgb.r;px[i+1]=eraser?255:rgb.g;px[i+2]=eraser?255:rgb.b;px[i+3]=eraser?0:255;
+    }}
+  }
+  function fillAt(sx,sy){
+    var ti=(sy*gw+sx)*4,tr=px[ti],tg=px[ti+1],tb=px[ti+2],ta=px[ti+3];
+    var rgb=h2r(cc)||{r:0,g:0,b:0};
+    if(tr===rgb.r&&tg===rgb.g&&tb===rgb.b&&ta===255)return;
+    var isErase=ct==="eraser";if(isErase&&ta===0)return;
+    var stack=[[sx,sy]],vis={};
+    while(stack.length>0){
+      var p=stack.pop(),x=p[0],y=p[1],key=x+","+y;if(x<0||y<0||x>=gw||y>=gh||vis[key])continue;
+      var i=(y*gw+x)*4;if(isErase&&px[i+3]===0)continue;
+      if(!isErase&&(px[i]!==tr||px[i+1]!==tg||px[i+2]!==tb||px[i+3]!==ta))continue;
+      vis[key]=true;
+      px[i]=isErase?255:rgb.r;px[i+1]=isErase?255:rgb.g;px[i+2]=isErase?255:rgb.b;px[i+3]=isErase?0:255;
+      stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
+    }
+    renderAll();
+  }
+
+  // ===== 工具逻辑 =====
+  function getPixelPos(e){
+    var r=cv.getBoundingClientRect();
+    var cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    var cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+    return{x:Math.floor(cx/PS),y:Math.floor(cy/PS)}
+  }
+  function drawLine(x1,y1,x2,y2){
+    var dx=x2-x1,dy=y2-y1,st=Math.max(Math.abs(dx),Math.abs(dy));
+    if(st===0){drawPoint(x1,y1);return}
+    for(var i=0;i<=st;i++)drawPoint(Math.round(x1+dx*i/st),Math.round(y1+dy*i/st));
+  }
+  function drawRect(x1,y1,x2,y2){
+    var xmn=Math.min(x1,x2),xmx=Math.max(x1,x2),ymn=Math.min(y1,y2),ymx=Math.max(y1,y2);
+    for(var y=ymn;y<=ymx;y++)for(var x=xmn;x<=xmx;x++){if(y===ymn||y===ymx||x===xmn||x===xmx)drawPoint(x,y)}
+  }
+  function drawCircle(cx,cy,r){
+    for(var y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(var x=Math.floor(cx-r);x<=Math.ceil(cx+r);x++){if(Math.sqrt((x-cx)*(x-cx)+(y-cy)*(y-cy))<=r+0.5)drawPoint(x,y)}
+  }
+
+  // ===== 事件处理 =====
+  cv.addEventListener("mousedown",function(e){
+    e.preventDefault();
+    var p=getPixelPos(e);
+    if(ct==="eyedropper"){var i=(p.y*gw+p.x)*4;cc=r2h(px[i],px[i+1],px[i+2]);addRecentColor(cc);updCur();renderClr();tip("取色: "+cc);return}
+    if(ct==="fill"){saveUndo();fillAt(p.x,p.y);return}
+    dw=true;saveUndo();
+    if(ct==="line"||ct==="rect"||ct==="circle"){shapeStart={x:p.x,y:p.y}}
+    else{drawPoint(p.x,p.y);lx=p.x;ly=p.y}
+  });
+  cv.addEventListener("mousemove",function(e){
+    if(!dw)return;var p=getPixelPos(e);
+    if(ct==="line"&&shapeStart){undo();saveUndo();drawLine(shapeStart.x,shapeStart.y,p.x,p.y);renderAll();}
+    else if(ct==="rect"&&shapeStart){undo();saveUndo();drawRect(shapeStart.x,shapeStart.y,p.x,p.y);renderAll();}
+    else if(ct==="circle"&&shapeStart){undo();saveUndo();var r=Math.sqrt(Math.pow(p.x-shapeStart.x,2)+Math.pow(p.y-shapeStart.y,2));drawCircle(shapeStart.x,shapeStart.y,r);renderAll();}
+    else if(ct==="pen"||ct==="eraser"){if(lx>=0&&ly>=0)drawLine(lx,ly,p.x,p.y);lx=p.x;ly=p.y;renderAll();}
+  });
+  cv.addEventListener("mouseup",function(){dw=false;lx=ly=-1;shapeStart=null});
+  cv.addEventListener("mouseleave",function(){dw=false;lx=ly=-1;shapeStart=null});
+  cv.addEventListener("touchstart",function(e){e.preventDefault();
+    var p=getPixelPos(e);
+    if(ct==="eyedropper"){var i=(p.y*gw+p.x)*4;cc=r2h(px[i],px[i+1],px[i+2]);addRecentColor(cc);updCur();renderClr();tip("取色: "+cc);return}
+    if(ct==="fill"){saveUndo();fillAt(p.x,p.y);return}
+    dw=true;saveUndo();
+    if(ct==="line"||ct==="rect"||ct==="circle"){shapeStart={x:p.x,y:p.y}}
+    else{drawPoint(p.x,p.y);lx=p.x;ly=p.y}
+  },{passive:false});
+  cv.addEventListener("touchmove",function(e){if(!dw)return;e.preventDefault();var p=getPixelPos(e);
+    if(ct==="line"&&shapeStart){undo();saveUndo();drawLine(shapeStart.x,shapeStart.y,p.x,p.y);renderAll();}
+    else if(ct==="rect"&&shapeStart){undo();saveUndo();drawRect(shapeStart.x,shapeStart.y,p.x,p.y);renderAll();}
+    else if(ct==="circle"&&shapeStart){undo();saveUndo();var r=Math.sqrt(Math.pow(p.x-shapeStart.x,2)+Math.pow(p.y-shapeStart.y,2));drawCircle(shapeStart.x,shapeStart.y,r);renderAll();}
+    else if(ct==="pen"||ct==="eraser"){if(lx>=0&&ly>=0)drawLine(lx,ly,p.x,p.y);lx=p.x;ly=p.y;renderAll();}
+  },{passive:false});
+  cv.addEventListener("touchend",function(){dw=false;lx=ly=-1;shapeStart=null});
+
+  // 工具切换
+  document.querySelectorAll("#page-draw .tb[data-tool]").forEach(function(b){b.addEventListener("click",function(){
+    document.querySelectorAll("#page-draw .tb[data-tool]").forEach(function(x){x.classList.remove("on")});this.classList.add("on");ct=this.dataset.tool})});
+  // 对称切换
+  document.querySelectorAll(".sym-btn").forEach(function(b){b.addEventListener("click",function(){
+    document.querySelectorAll(".sym-btn").forEach(function(x){x.classList.remove("on")});this.classList.add("on");sym=this.dataset.sym})});
+  // 笔刷大小
+  document.querySelectorAll(".bs-row button").forEach(function(b){b.addEventListener("click",function(){
+    document.querySelectorAll(".bs-row button").forEach(function(x){x.classList.remove("on")});this.classList.add("on");bs=parseInt(this.dataset.size)})});
+  // 按钮
+  document.getElementById("btn-undo").addEventListener("click",undo);
+  document.getElementById("btn-redo").addEventListener("click",redo);
+  document.getElementById("btn-grid").addEventListener("click",function(){sg=!sg;renderAll()});
+  document.getElementById("btn-clear").addEventListener("click",function(){if(confirm("清空画布？")){saveUndo();px.fill(255);renderAll();tip("已清空")}});
+  document.getElementById("btn-resize").addEventListener("click",function(){
+    var nw=parseInt(document.getElementById("draw-w").value)||32,nh=parseInt(document.getElementById("draw-h").value)||32;
+    if(nw<4||nw>256){alert("4-256");return}reset(nw,nh);tip(""+nw+"×"+nh)});
+  document.getElementById("btn-export-draw").addEventListener("click",function(){
+    var ec=document.createElement("canvas");ec.width=gw;ec.height=gh;var ectx=ec.getContext("2d");
+    ectx.fillStyle="#fff";ectx.fillRect(0,0,gw,gh);
+    for(var y=0;y<gh;y++)for(var x=0;x<gw;x++){var i=(y*gw+x)*4;if(px[i+3]>0){ectx.fillStyle="rgba("+px[i]+","+px[i+1]+","+px[i+2]+","+(px[i+3]/255)+")";ectx.fillRect(x,y,1,1)}}
+    showExportPopup(ec)});
+
+  // 键盘快捷键
+  document.addEventListener("keydown",function(e){
+    if(!document.getElementById("page-draw").classList.contains("on"))return;
+    if((e.ctrlKey||e.metaKey)&&e.key==="z"){e.preventDefault();if(e.shiftKey)redo();else undo()}
+    if((e.ctrlKey||e.metaKey)&&e.key==="y"){e.preventDefault();redo()}
+    if(e.key==="1")ct="pen";if(e.key==="2")ct="eraser";if(e.key==="3")ct="fill";if(e.key==="4")ct="eyedropper";
+    if(e.key==="5")ct="line";if(e.key==="6")ct="rect";if(e.key==="7")ct="circle";
+    document.querySelectorAll("#page-draw .tb[data-tool]").forEach(function(x){x.classList.toggle("on",x.dataset.tool===ct)});
+  });
+
+  // 初始化
+  window.loadGrid=function(w,h,grid){
+    reset(w,h);
+    for(var y=0;y<h;y++)for(var x=0;x<w;x++){
+      var c=grid[y]&&grid[y][x]?grid[y][x]:"#ffffff";
+      var rgb=h2r(c)||{r:255,g:255,b:255};
+      if(c!=="#ffffff"){var i=(y*gw+x)*4;px[i]=rgb.r;px[i+1]=rgb.g;px[i+2]=rgb.b;px[i+3]=255}
+    }
+    renderAll();
+  };
+  updateCanvasSize();renderAll();
+
+  // ===== 存储功能 =====
+  function saveProject(){
+    var proj={w:gw,h:gh,pxData:Array.from(px),ts:Date.now()};
+    try{localStorage.setItem("pxproj",JSON.stringify(proj));
+      document.getElementById("saveIndicator").classList.add("show");
+      setTimeout(function(){document.getElementById("saveIndicator").classList.remove("show")},2000);
+      return true}catch(e){tip("保存失败");return false}
+  }
+  function loadProject(){
+    try{var raw=localStorage.getItem("pxproj");if(!raw){tip("没有已保存的项目");return}
+      var proj=JSON.parse(raw);if(!proj||!proj.pxData){tip("数据损坏");return}
+      if(!confirm("加载将覆盖当前画布，确定？"))return;
+      gw=proj.w;gh=proj.h;px=new Uint8Array(proj.pxData);
+      updateCanvasSize();renderAll();
+      document.getElementById("draw-w").value=gw;document.getElementById("draw-h").value=gh;
+      undoStack=[];redoStack=[];tip("已加载: "+gw+"x"+gh)}catch(e){tip("加载失败")}
+  }
+  document.getElementById("btn-save-project").addEventListener("click",function(){saveProject()&&tip("已保存!")});
+  document.getElementById("btn-load-project").addEventListener("click",loadProject);
+}
+
+// ========== AI 生图 ==========
+(function(){
+  var aU=null;
+  document.getElementById("ai-prompt").addEventListener("keydown",function(e){if(e.key==="Enter")document.getElementById("btn-ai-gen").click()});
+  document.getElementById("btn-ai-gen").addEventListener("click",function(){
+    var p=document.getElementById("ai-prompt").value.trim();if(!p)return;
+    var btn=this;btn.disabled=true;btn.textContent="生成中...";
+    var s=document.getElementById("ai-size").value,seed=Math.floor(Math.random()*999999);
+    fetch("https://image.pollinations.ai/prompt/"+encodeURIComponent(p),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"turbo",width:s,height:s,seed:seed})})
+    .then(function(r){if(!r.ok)throw new Error("排队中");return r.blob()})
+    .then(function(b){aU=URL.createObjectURL(b);document.getElementById("ai-image").src=aU;document.getElementById("ai-result").style.display="block";tip("AI完成！")})
+    .catch(function(e){alert("失败: "+e.message+"\n等10秒重试")})
+    .finally(function(){btn.disabled=false;btn.textContent="生成"});
+  });
+  document.getElementById("btn-ai-to-convert").addEventListener("click",function(){if(!aU)return;switchTab("convert");setTimeout(function(){fetch(aU).then(function(r){return r.blob()}).then(function(b){var f=new File([b],"ai.png",{type:"image/png"});var dt=new DataTransfer();dt.items.add(f);document.getElementById("file-input").files=dt.files;document.getElementById("file-input").dispatchEvent(new Event("change"))})},200)});
+  document.getElementById("btn-ai-to-draw").addEventListener("click",function(){
+    if(!aU)return;switchTab("draw");
+    setTimeout(function(){fetch(aU).then(function(r){return r.blob()}).then(function(b){
+      var rd=new FileReader();rd.onload=function(){var m=new Image();m.onload=function(){
+        var w=parseInt(document.getElementById("draw-w").value)||32,h=parseInt(document.getElementById("draw-h").value)||32;
+        var c=document.createElement("canvas");c.width=w;c.height=h;var ctx=c.getContext("2d");ctx.imageSmoothingEnabled=false;ctx.drawImage(m,0,0,w,h);
+        var id=ctx.getImageData(0,0,w,h);var grid=[];
+        for(var y=0;y<h;y++){var row=[];for(var x=0;x<w;x++){var i=(y*w+x)*4;row.push(id.data[i+3]>128?r2h(id.data[i],id.data[i+1],id.data[i+2]):"#ffffff")}grid.push(row)}
+        window.loadGrid(w,h,grid)};m.src=rd.result};rd.readAsDataURL(b)})},300);
+  });
+  document.getElementById("btn-ai-retry").addEventListener("click",function(){document.getElementById("btn-ai-gen").click()});
+})();
+
+// HSV 纯工具函数
+function rgb2hsv(r,g,b){r/=255;g/=255;b/=255;var max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min,h,s,v=max;if(d===0)h=0;else if(max===r)h=(((g-b)/d)%6)*60;else if(max===g)h=((b-r)/d+2)*60;else h=((r-g)/d+4)*60;if(h<0)h+=360;s=max===0?0:d/max;return{h:h,s:s*100,v:v*100}}
+function hsv2rgb(h,s,v){s/=100;v/=100;var c=v*s,x=c*(1-Math.abs(h/60%2-1)),m=v-c,r,g,b;if(h<60){r=c;g=x;b=0}else if(h<120){r=x;g=c;b=0}else if(h<180){r=0;g=c;b=x}else if(h<240){r=0;g=x;b=c}else if(h<300){r=x;g=0;b=c}else{r=c;g=0;b=x}return{r:Math.round((r+m)*255),g:Math.round((g+m)*255),b:Math.round((b+m)*255)}}
+
+// 启动
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
+</script>
+</body>
+</html>
